@@ -18,19 +18,25 @@ BASE_URL = "https://dossieretudiant.polymtl.ca/WebEtudiant7/poly.html"
 
 $log = Logger.new('logs\testPoly.log')
 def test
-  response = HTTParty.get("https://www.horaires.aep.polymtl.ca/make_form2.php?courses=LOG2990")
-  it = !response.body.include?('closed">02<input name="l_LOG2990_02"')
-  $log.info("FirstTestResponse #{it.to_s}")
-  puts it
-  it
+  begin 
+    response = HTTParty.get("https://www.horaires.aep.polymtl.ca/make_form2.php?courses=#{TARGET_COURSE}")
+    it = !response.body.include?("closed\">#{TARGET_GROUP}<input name=\"l_#{TARGET_COURSE}_#{TARGET_GROUP}\"")
+    $log.info("FirstTestResponse #{it.to_s}")
+    puts it
+    return it
+  rescue Exception => e
+    $log.warn("Error in test : #{e}")
+    sleep 60
+    return false
+  end
 end
 
 def update
   loop do
     has_spot = test
     if has_spot
-      it = LaHess.new()
       $log.info("lunching the bot")
+      it = LaHess.new()
       if it.worked?
         $log.warn("successfully")
         break
@@ -72,28 +78,37 @@ class LaHess
     script = "console.log(arguments[0].value= #{TARGET_GROUP})"
     @browser.execute_script(script, element)
     @browser.input(name: "grlab#{index}").fire_event('onchange')
-    reussit= true
     sleep 1
     if @browser.alert.exists?
       $log.debug "Alert when changing the lab number: #{@browser.alert.text} "
-      reussit = !@browser.alert.text.include?("Il n'y a plus de places pour le groupe")
-      @browser.alert.ok
+      nike_le_alert
     end
+    sleep 3
     @is_correct_value = (@browser.input(name: "grlab#{index}").value == TARGET_GROUP)
-    if reussit && @is_correct_value
+    if @is_correct_value
       save
     end
     @browser.close
   end
 
   def save
+    nike_le_alert
+
     @browser.input(value: 'Enregistrer').click
-    if @browser.alert.exists?
+
+    sleep 3
+    nike_le_alert
+    sleep 3
+    $log.info "Submitted"
+  end
+
+  def nike_le_alert
+    while @browser.alert.exists?
       $log.debug @browser.alert.text
       @browser.alert.ok
     end
-    $log.info "Submitted"
   end
+
 end
 
 update()
