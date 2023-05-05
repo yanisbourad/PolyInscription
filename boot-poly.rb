@@ -1,50 +1,26 @@
 require 'watir'
 require 'httparty'
 
-
-
-CODE = ''
-NIP = ''
+CODE_ACCES = ''
+MOT_DE_PASSE = ''
 NAISSANCE = ""
-
-
-
-TARGET_COURSE = 'LOG2990'
-TARGET_GROUP = '02'
-
+TARGET_COURSE = 'PHS1101'
+TARGET_GROUP = '01'
 BASE_URL = "https://dossieretudiant.polymtl.ca/WebEtudiant7/poly.html"
 
-
-
 $log = Logger.new('logs\testPoly.log')
-def test
-  begin 
-    response = HTTParty.get("https://www.horaires.aep.polymtl.ca/make_form2.php?courses=#{TARGET_COURSE}")
-    it = !response.body.include?("closed\">#{TARGET_GROUP}<input name=\"l_#{TARGET_COURSE}_#{TARGET_GROUP}\"")
-    $log.info("FirstTestResponse #{it.to_s}")
-    puts it
-    return it
-  rescue Exception => e
-    $log.warn("Error in test : #{e}")
-    sleep 60
-    return false
-  end
-end
 
 def update
   loop do
-    has_spot = test
-    if has_spot
-      $log.info("lunching the bot")
+    $log.info("lunching the bot")
       it = LaHess.new()
       if it.worked?
-        $log.warn("successfully")
+        $log.warn("place founded successfully")
         break
       end
-      $log.error("the bot was not successful")
-    end
-    $log.info("Sleeping for 50s")
-    sleep(50)
+      $log.error("No place found for this course")
+    $log.info("Sleeping for 5s")
+    sleep(5)
   end
 end
 
@@ -52,9 +28,8 @@ class LaHess
 
   def initialize()
     @last_changes_date = Date.new()
-    
+    @is_correct_value = false
     connect()
-    $log.info("the connection was successful")
     go_to_change_couses()
   end 
 
@@ -64,48 +39,53 @@ class LaHess
 
   def connect
     @browser = Watir::Browser.start BASE_URL
-    @browser.input(id: "code").set CODE
-    @browser.input(id: "nip").set NIP
+    @browser.input(id: "code").set CODE_ACCES
+    @browser.input(id: "nip").set MOT_DE_PASSE
     @browser.input(id: "naissance").set NAISSANCE
     @browser.input(type: "submit").click
   end
 
   def go_to_change_couses
     @browser.input(name: "btnModif").click 
-    index = @browser.input(value: TARGET_COURSE).name[-1]
-    element = @browser.input(name: "grlab#{index}")
-    @browser.input(name: "grlab#{index}")
-    script = "console.log(arguments[0].value= #{TARGET_GROUP})"
-    @browser.execute_script(script, element)
-    @browser.input(name: "grlab#{index}").fire_event('onchange')
-    sleep 1
+    # nom du cours
+    @browser.input(name: "sigle1").set TARGET_COURSE
+    # gr theorique
+    @browser.input(name: "grtheo1").click
+    @browser.input(name: "grtheo1").set TARGET_GROUP
+    @browser.input(name: "grlab1").click
     if @browser.alert.exists?
-      $log.debug "Alert when changing the lab number: #{@browser.alert.text} "
-      nike_le_alert
+      @browser.alert.ok
+      end
+    if @browser.alert.exists?
+      if @browser.alert.text.include?("Il n'y a plus de places pour le groupe 01 théorie du cours PHS1101")
+        @browser.close
+        return @is_correct_value = false
+      end
+      closeAlertPopup
     end
-    sleep 3
-    @is_correct_value = (@browser.input(name: "grlab#{index}").value == TARGET_GROUP)
-    if @is_correct_value
-      save
-    end
+    
+    # groupe pratique
+    save
     @browser.close
+    return @is_correct_value = true
   end
 
   def save
-    nike_le_alert
+    closeAlertPopup
 
     @browser.input(value: 'Enregistrer').click
 
-    sleep 3
-    nike_le_alert
-    sleep 3
+    sleep 1
+    closeAlertPopup
     $log.info "Submitted"
   end
 
-  def nike_le_alert
+  def closeAlertPopup
     while @browser.alert.exists?
       $log.debug @browser.alert.text
+      sleep 1
       @browser.alert.ok
+      
     end
   end
 
