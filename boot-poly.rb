@@ -57,7 +57,7 @@ class LaHess
       @browser.alert.ok
       end
     if @browser.alert.exists?
-      if @browser.alert.text.include?("Il n'y a plus de places pour le groupe 01 théorie du cours PHS1101")
+      if @browser.alert.text.include?("Il n'y a plus de places pour le groupe #{TARGET_GROUP} théorie du cours #{TARGET_COURSE}")
         @browser.close
         return @is_correct_value = false
       end
